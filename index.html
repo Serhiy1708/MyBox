@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#0a0a0f">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <title>Моя коробка</title>
+
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" type="image/png" href="icon-192.png">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- ДАШБОРД -->
+  <div id="dashboard" class="screen active">
+    <header class="header">
+      <h1>Моя коробка</h1>
+      <p class="subtitle">Твої інструменти в одному місці</p>
+    </header>
+
+    <div class="grid" id="modulesGrid">
+      <!-- карточки модулів рендеряться з app.js -->
+    </div>
+
+    <div class="toolbar">
+      <button class="btn btn-secondary" id="btnExport">
+        <span>📦</span> Експорт пакетом
+      </button>
+      <button class="btn btn-secondary" id="btnImport">
+        <span>📥</span> Імпорт пакетом
+      </button>
+      <input type="file" id="fileInput" accept=".json,application/json" hidden>
+    </div>
+  </div>
+
+  <!-- ЕКРАН МОДУЛЯ -->
+  <div id="moduleScreen" class="screen">
+    <header class="header module-header">
+      <button class="btn-back" id="btnBack">←</button>
+      <h2 id="moduleTitle">Модуль</h2>
+    </header>
+    <div id="moduleContent" class="module-content">
+      <!-- сюди рендериться модуль -->
+    </div>
+  </div>
+
+  <!-- ТОСТ -->
+  <div id="toast" class="toast"></div>
+
+  <script src="app.js"></script>
+</body>
+</html>
