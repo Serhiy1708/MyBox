@@ -11,6 +11,7 @@ const BANKS = [
 
 let credits = [];
 let containerRef = null;
+let expandedIds = new Set(); // які карточки розгорнуті
 
 function uid() {
   return Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
@@ -56,23 +57,40 @@ async function addCredit() {
   if (type === "installment") {
     const day = parseInt(containerRef.querySelector("#cc_day").value) || 1;
     const payment = parseFloat(containerRef.querySelector("#cc_payment").value) || 0;
+    const months = parseInt(containerRef.querySelector("#cc_months").value) || 0;
+
     if (payment <= 0) { alert("Введіть суму платежу"); return; }
+    if (months <= 0) { alert("Введіть кількість місяців"); return; }
+
     credit.day = day;
     credit.payment = payment;
+    credit.months = months;
+    credit.monthsPaid = 0;
   }
 
   credits.unshift(credit);
+  expandedIds.add(credit.id); // новостворена — розгорнута
   await save();
   render();
+
   containerRef.querySelector("#cc_sum").value = "";
   const p = containerRef.querySelector("#cc_payment");
   if (p) p.value = "";
+  const m = containerRef.querySelector("#cc_months");
+  if (m) m.value = "";
 }
 
 async function deleteCredit(id) {
   if (!confirm("Видалити?")) return;
   credits = credits.filter(c => c.id !== id);
+  expandedIds.delete(id);
   await save();
+  render();
+}
+
+async function toggleExpand(id) {
+  if (expandedIds.has(id)) expandedIds.delete(id);
+  else expandedIds.add(id);
   render();
 }
 
@@ -91,6 +109,7 @@ async function payFixed(id) {
   if (!c || c.type !== "installment") return;
 
   c.remaining = Math.max(0, c.remaining - c.payment);
+  c.monthsPaid = (c.monthsPaid || 0) + 1;
   await save();
   render();
 
@@ -108,6 +127,7 @@ async function payCustom(id) {
   if (v <= 0) { alert("Введіть суму"); return; }
 
   c.remaining = Math.max(0, c.remaining - v);
+  c.monthsPaid = (c.monthsPaid || 0) + 1;
   await save();
   render();
 
@@ -138,7 +158,33 @@ function render() {
 function renderCard(c) {
   const reduced = c.sum - c.remaining;
   const isInstallment = c.type === "installment";
+  const isExpanded = expandedIds.has(c.id);
 
+  // ─── КОРОТКА ЧАСТИНА (завжди видима) ───
+  const header = `
+    <div class="cc-card-header" onclick="window.ccToggle('${c.id}')">
+      <div class="cc-toggle ${isExpanded ? 'open' : ''}">›</div>
+      <div class="cc-bank">${escapeHtml(c.bank)}</div>
+      <div class="cc-type">${isInstallment ? "Розстрочка" : "Кредит"}</div>
+      <button class="cc-del" onclick="event.stopPropagation(); window.ccDelete('${c.id}')">✕</button>
+    </div>
+    <div class="cc-summary">
+      <div>
+        <div class="cc-summary-lbl">Сума</div>
+        <div class="cc-summary-val">${formatMoney(c.sum)}</div>
+      </div>
+      <div>
+        <div class="cc-summary-lbl">Залишок</div>
+        <div class="cc-summary-val accent">${formatMoney(c.remaining)}</div>
+      </div>
+    </div>
+  `;
+
+  if (!isExpanded) {
+    return `<div class="cc-card">${header}</div>`;
+  }
+
+  // ─── РОЗГОРНУТА ЧАСТИНА ───
   let body = "";
 
   if (!isInstallment) {
@@ -155,19 +201,26 @@ function renderCard(c) {
       </div>
     `;
   } else {
-    const monthsLeft = c.payment > 0 ? Math.ceil(c.remaining / c.payment) : 0;
+    const totalMonths = c.months || 0;
+    const paidMonths = c.monthsPaid || 0;
+    const leftMonths = Math.max(0, totalMonths - paidMonths);
+
     body = `
       <div class="cc-info-row">
         <span>Платіж</span>
         <span>${formatMoney(c.payment)} · ${c.day} число</span>
       </div>
       <div class="cc-info-row">
-        <span>Залишилось</span>
-        <span>${monthsLeft} міс.</span>
+        <span>Всього місяців</span>
+        <span>${totalMonths}</span>
       </div>
       <div class="cc-info-row">
-        <span>Залишок</span>
-        <span class="cc-remaining">${formatMoney(c.remaining)}</span>
+        <span>Сплачено</span>
+        <span>${paidMonths} міс.</span>
+      </div>
+      <div class="cc-info-row">
+        <span>Залишилось</span>
+        <span>${leftMonths} міс.</span>
       </div>
 
       <div class="cc-actions">
@@ -189,14 +242,9 @@ function renderCard(c) {
   }
 
   return `
-    <div class="cc-card">
-      <div class="cc-card-header">
-        <div class="cc-bank">${escapeHtml(c.bank)}</div>
-        <div class="cc-type">${isInstallment ? "Розстрочка" : "Кредит"}</div>
-        <button class="cc-del" onclick="window.ccDelete('${c.id}')">✕</button>
-      </div>
-      <div class="cc-sum">Сума: <b>${formatMoney(c.sum)}</b></div>
-      ${body}
+    <div class="cc-card expanded">
+      ${header}
+      <div class="cc-body">${body}</div>
     </div>
   `;
 }
@@ -262,29 +310,58 @@ export default {
 
     .cc-hidden { display: none !important; }
 
+    /* ─── Карточка ─── */
     .cc-card {
       background: var(--card);
       border: 1px solid var(--border);
       border-radius: var(--radius);
-      padding: 16px;
       margin-bottom: 12px;
       transition: 0.2s;
+      overflow: hidden;
     }
-    .cc-card:hover { border-color: #3a3a4a; }
+    .cc-card.expanded {
+      border-color: var(--accent);
+    }
 
+    /* ─── Заголовок (клікабельний) ─── */
     .cc-card-header {
       display: flex;
       align-items: center;
       gap: 10px;
-      margin-bottom: 12px;
-      flex-wrap: wrap;
+      padding: 14px 16px;
+      cursor: pointer;
+      user-select: none;
+      transition: background 0.15s;
+    }
+    .cc-card-header:hover {
+      background: var(--bg-soft);
+    }
+    .cc-card-header:active {
+      background: #1f1f2a;
+    }
+
+    .cc-toggle {
+      font-size: 20px;
+      color: var(--text-muted);
+      transition: transform 0.25s;
+      width: 16px;
+      text-align: center;
+      flex-shrink: 0;
+    }
+    .cc-toggle.open {
+      transform: rotate(90deg);
+      color: var(--accent-light);
     }
 
     .cc-bank {
       font-weight: 700;
-      font-size: 16px;
+      font-size: 15px;
       color: var(--text);
       flex: 1;
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
     }
 
     .cc-type {
@@ -295,18 +372,21 @@ export default {
       font-size: 11px;
       font-weight: 600;
       text-transform: uppercase;
+      white-space: nowrap;
+      flex-shrink: 0;
     }
 
     .cc-del {
       background: transparent;
       border: 1px solid var(--border);
       color: var(--text-muted);
-      width: 32px;
-      height: 32px;
+      width: 30px;
+      height: 30px;
       border-radius: 8px;
       cursor: pointer;
-      font-size: 14px;
+      font-size: 13px;
       transition: 0.2s;
+      flex-shrink: 0;
     }
     .cc-del:hover {
       background: var(--danger);
@@ -314,12 +394,33 @@ export default {
       border-color: var(--danger);
     }
 
-    .cc-sum {
-      font-size: 14px;
-      color: var(--text-muted);
-      margin-bottom: 12px;
+    /* ─── Коротка сумарна стрічка ─── */
+    .cc-summary {
+      display: flex;
+      justify-content: space-between;
+      padding: 0 16px 14px;
+      gap: 12px;
     }
-    .cc-sum b { color: var(--text); font-size: 16px; }
+    .cc-summary-lbl {
+      font-size: 10px;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 2px;
+    }
+    .cc-summary-val {
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--text);
+    }
+    .cc-summary-val.accent { color: var(--accent-light); }
+
+    /* ─── Розгорнуте тіло ─── */
+    .cc-body {
+      padding: 0 16px 16px;
+      border-top: 1px dashed var(--border);
+      padding-top: 14px;
+    }
 
     .cc-field { margin-bottom: 10px; }
     .cc-field label {
@@ -451,6 +552,7 @@ export default {
             <input type="number" id="cc_day" placeholder="День (1-31)" min="1" max="31" inputmode="numeric">
             <input type="number" id="cc_payment" placeholder="Платіж/міс, ₴" inputmode="decimal" min="0">
           </div>
+          <input type="number" id="cc_months" placeholder="Кількість місяців" min="1" inputmode="numeric" style="margin-top:10px;">
         </div>
 
         <button id="cc_add">+ Додати</button>
@@ -511,6 +613,7 @@ export default {
     window.ccPayFixed = payFixed;
     window.ccPayCustom = payCustom;
     window.ccDelete = deleteCredit;
+    window.ccToggle = toggleExpand;
 
     await load();
     render();
