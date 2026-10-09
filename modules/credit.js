@@ -11,7 +11,7 @@ const BANKS = [
 
 let credits = [];
 let containerRef = null;
-let expandedIds = new Set(); // які карточки розгорнуті
+let expandedIds = new Set();
 
 function uid() {
   return Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
@@ -35,8 +35,6 @@ async function load() {
   const data = await storage.get("credit", "data", []);
   credits = Array.isArray(data) ? data.filter(c => c && c.id && c.type) : [];
 }
-
-// ============ ОПЕРАЦІЇ ============
 
 async function addCredit() {
   const bank = containerRef.querySelector("#cc_bank").value;
@@ -69,7 +67,7 @@ async function addCredit() {
   }
 
   credits.unshift(credit);
-  expandedIds.add(credit.id); // новостворена — розгорнута
+  expandedIds.add(credit.id);
   await save();
   render();
 
@@ -136,8 +134,6 @@ async function payCustom(id) {
   }
 }
 
-// ============ РЕНДЕР ============
-
 function render() {
   const list = containerRef.querySelector("#cc_list");
   const active = credits.filter(c => c.remaining > 0);
@@ -160,7 +156,6 @@ function renderCard(c) {
   const isInstallment = c.type === "installment";
   const isExpanded = expandedIds.has(c.id);
 
-  // ─── КОРОТКА ЧАСТИНА (завжди видима) ───
   const header = `
     <div class="cc-card-header" onclick="window.ccToggle('${c.id}')">
       <div class="cc-toggle ${isExpanded ? 'open' : ''}">›</div>
@@ -184,7 +179,6 @@ function renderCard(c) {
     return `<div class="cc-card">${header}</div>`;
   }
 
-  // ─── РОЗГОРНУТА ЧАСТИНА ───
   let body = "";
 
   if (!isInstallment) {
@@ -249,8 +243,6 @@ function renderCard(c) {
   `;
 }
 
-// ============ МОДУЛЬ ============
-
 export default {
   id: "credit",
   title: "Кредити",
@@ -310,7 +302,6 @@ export default {
 
     .cc-hidden { display: none !important; }
 
-    /* ─── Карточка ─── */
     .cc-card {
       background: var(--card);
       border: 1px solid var(--border);
@@ -323,7 +314,6 @@ export default {
       border-color: var(--accent);
     }
 
-    /* ─── Заголовок (клікабельний) ─── */
     .cc-card-header {
       display: flex;
       align-items: center;
@@ -394,7 +384,6 @@ export default {
       border-color: var(--danger);
     }
 
-    /* ─── Коротка сумарна стрічка ─── */
     .cc-summary {
       display: flex;
       justify-content: space-between;
@@ -415,11 +404,9 @@ export default {
     }
     .cc-summary-val.accent { color: var(--accent-light); }
 
-    /* ─── Розгорнуте тіло ─── */
     .cc-body {
-      padding: 0 16px 16px;
+      padding: 14px 16px 16px;
       border-top: 1px dashed var(--border);
-      padding-top: 14px;
     }
 
     .cc-field { margin-bottom: 10px; }
