@@ -1,47 +1,26 @@
 // ============ РЕЄСТР МОДУЛІВ ============
-// Коли додаєш новий модуль — додай сюди рядок.
-// Модуль має бути у файлі modules/<id>.js і експортувати об'єкт.
 const modules = [
-  {
-    id: "credit",
-    title: "Кредити",
-    icon: "💳",
-    desc: "Калькулятор кредитів",
-    loaded: false,
-    instance: null
-  },
-  {
-    id: "utility",
-    title: "Комуналка",
-    icon: "🏠",
-    desc: "Розрахунок платежів",
-    loaded: false,
-    instance: null
-  },
-  {
-    id: "calendar",
-    title: "Календар",
-    icon: "📅",
-    desc: "Приватний календар",
-    loaded: false,
-    instance: null
-  }
+  { id: "credit",   title: "Кредити",   icon: "💳", desc: "Калькулятор кредитів", loaded: false, instance: null },
+  { id: "utility",  title: "Комуналка", icon: "🏠", desc: "Розрахунок платежів",  loaded: false, instance: null },
+  { id: "calendar", title: "Календар",  icon: "📅", desc: "Приватний календар",   loaded: false, instance: null }
 ];
 
 // ============ DOM ============
-const dashboard    = document.getElementById("dashboard");
-const moduleScreen = document.getElementById("moduleScreen");
-const grid         = document.getElementById("modulesGrid");
-const moduleTitle  = document.getElementById("moduleTitle");
-const moduleContent= document.getElementById("moduleContent");
-const btnBack      = document.getElementById("btnBack");
-const btnExport    = document.getElementById("btnExport");
-const btnImport    = document.getElementById("btnImport");
-const fileInput    = document.getElementById("fileInput");
-const toastEl      = document.getElementById("toast");
+const dashboard     = document.getElementById("dashboard");
+const moduleScreen  = document.getElementById("moduleScreen");
+const grid          = document.getElementById("modulesGrid");
+const moduleTitle   = document.getElementById("moduleTitle");
+const moduleContent = document.getElementById("moduleContent");
+const btnBack       = document.getElementById("btnBack");
+const btnExport     = document.getElementById("btnExport");
+const btnImport     = document.getElementById("btnImport");
+const btnClearAll   = document.getElementById("btnClearAll");
+const fileInput     = document.getElementById("fileInput");
+const toastEl       = document.getElementById("toast");
 
 // ============ УТИЛІТИ ============
 function showToast(msg, ms = 2400) {
+  if (!toastEl) return;
   toastEl.textContent = msg;
   toastEl.classList.add("show");
   clearTimeout(toastEl._timer);
@@ -70,16 +49,10 @@ function renderDashboard() {
     grid.appendChild(card);
   });
 
-  // Карточка "додати модуль"
   const addCard = document.createElement("div");
   addCard.className = "module-card add-card";
-  addCard.innerHTML = `
-    <div class="icon">＋</div>
-    <div class="title">Додати модуль</div>
-  `;
-  addCard.onclick = () => {
-    showToast("Скоро: шаблон для нових модулів");
-  };
+  addCard.innerHTML = `<div class="icon">＋</div><div class="title">Додати модуль</div>`;
+  addCard.onclick = () => showToast("Скоро: шаблон для нових модулів");
   grid.appendChild(addCard);
 }
 
@@ -93,7 +66,6 @@ async function openModule(m) {
   moduleScreen.scrollTop = 0;
 
   try {
-    // Ліниве завантаження модуля
     if (!m.loaded) {
       const mod = await import(`./modules/${m.id}.js`);
       m.instance = mod.default;
@@ -101,20 +73,31 @@ async function openModule(m) {
     }
 
     moduleContent.innerHTML = "";
+
     if (m.instance && typeof m.instance.init === "function") {
-      m.instance.init(moduleContent);
+      try {
+        await m.instance.init(moduleContent);
+      } catch (err) {
+        console.error("Помилка ініціалізації модуля:", err);
+        moduleContent.innerHTML = `
+          <div class="placeholder">
+            <div class="big">⚠️</div>
+            <h3>${escapeHtml(m.title)}</h3>
+            <p>Помилка: ${escapeHtml(err.message || String(err))}</p>
+          </div>
+        `;
+      }
     } else {
-      // Заглушка, якщо модуль ще не реалізовано
       moduleContent.innerHTML = `
         <div class="placeholder">
           <div class="big">${m.icon}</div>
           <h3>${escapeHtml(m.title)}</h3>
-          <p>Модуль у розробці. Скоро тут буде повний функціонал.</p>
+          <p>Модуль у розробці.</p>
         </div>
       `;
     }
   } catch (err) {
-    console.warn("Не вдалось завантажити модуль:", err);
+    console.error("Не вдалось завантажити модуль:", err);
     moduleContent.innerHTML = `
       <div class="placeholder">
         <div class="big">${m.icon}</div>
@@ -148,11 +131,12 @@ btnExport.onclick = async () => {
         m.loaded = true;
       }
       if (m.instance && typeof m.instance.getData === "function") {
-        pack.modules[m.id] = m.instance.getData();
+        pack.modules[m.id] = await m.instance.getData();
       } else {
         pack.modules[m.id] = null;
       }
     } catch (e) {
+      console.warn(`Export ${m.id}:`, e);
       pack.modules[m.id] = null;
     }
   }
@@ -190,13 +174,8 @@ fileInput.onchange = async (e) => {
       return;
     }
 
-    const ok = confirm(
-      "Імпорт замінить усі дані поточної коробки.\n\nПродовжити?"
-    );
-    if (!ok) {
-      fileInput.value = "";
-      return;
-    }
+    const ok = confirm("Імпорт замінить усі дані поточної коробки.\n\nПродовжити?");
+    if (!ok) { fileInput.value = ""; return; }
 
     for (const m of modules) {
       const data = pack.modules[m.id];
@@ -217,15 +196,14 @@ fileInput.onchange = async (e) => {
 
     showToast("✅ Імпорт завершено. Перезавантаження…", 2000);
 
-setTimeout(() => {
-  alert(
-    "Імпорт завершено ✅\n\n" +
-    "Зараз сторінка перезавантажиться, щоб модулі підхопили нові дані.\n\n" +
-    "Рекомендуємо одразу зробити новий бекап (📦 Експорт пакетом) " +
-    "і надіслати його собі на пошту або в хмару."
-  );
-  location.reload();
-}, 600);
+    setTimeout(() => {
+      alert(
+        "Імпорт завершено ✅\n\n" +
+        "Зараз сторінка перезавантажиться, щоб модулі підхопили нові дані.\n\n" +
+        "Рекомендуємо одразу зробити новий бекап (📦 Експорт пакетом)."
+      );
+      location.reload();
+    }, 600);
   } catch (err) {
     console.error(err);
     showToast("❌ Помилка читання файлу");
@@ -233,42 +211,34 @@ setTimeout(() => {
 
   fileInput.value = "";
 };
+
 // ============ ОЧИЩЕННЯ ВСЬОГО ============
-const btnClearAll = document.getElementById("btnClearAll");
+if (btnClearAll) {
+  btnClearAll.onclick = async () => {
+    const ok = confirm(
+      "⚠️ УВАГА!\n\n" +
+      "Це видалить УСІ дані з усіх модулів.\n\n" +
+      "Цю дію НЕ МОЖНА скасувати.\n\nПродовжити?"
+    );
+    if (!ok) return;
 
-btnClearAll.onclick = async () => {
-  const ok = confirm(
-    "⚠️ УВАГА!\n\n" +
-    "Це видалить УСІ дані з усіх модулів (кредити, комуналку, календар).\n\n" +
-    "Цю дію НЕ МОЖНА скасувати.\n\n" +
-    "Продовжити?"
-  );
-  if (!ok) return;
+    const ok2 = confirm("Точно впевнені?\n\nКраще спочатку зробити експорт пакетом (📦).");
+    if (!ok2) return;
 
-  const ok2 = confirm(
-    "Точно впевнені?\n\n" +
-    "Краще спочатку зробити експорт пакетом (📦), щоб мати бекап."
-  );
-  if (!ok2) return;
-
-  try {
-    // Очищаємо IndexedDB
-    const req = indexedDB.deleteDatabase("MyBoxDB");
-    req.onsuccess = () => {
-      showToast("🗑 Усі дані видалено. Перезавантаження…", 2000);
-      setTimeout(() => location.reload(), 800);
-    };
-    req.onerror = () => {
-      showToast("❌ Помилка видалення");
-    };
-    req.onblocked = () => {
-      showToast("⚠️ Закрийте інші вкладки сайту і спробуйте ще раз");
-    };
-  } catch (err) {
-    console.error(err);
-    showToast("❌ Помилка очищення");
-  }
-};
+    try {
+      const req = indexedDB.deleteDatabase("MyBoxDB");
+      req.onsuccess = () => {
+        showToast("🗑 Усі дані видалено. Перезавантаження…", 2000);
+        setTimeout(() => location.reload(), 800);
+      };
+      req.onerror = () => showToast("❌ Помилка видалення");
+      req.onblocked = () => showToast("⚠️ Закрийте інші вкладки сайту");
+    } catch (err) {
+      console.error(err);
+      showToast("❌ Помилка очищення");
+    }
+  };
+}
 
 // ============ SERVICE WORKER ============
 if ("serviceWorker" in navigator) {
