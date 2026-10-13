@@ -215,20 +215,59 @@ fileInput.onchange = async (e) => {
       }
     }
 
-    showToast("✅ Імпорт завершено", 2500);
-    setTimeout(() => {
-      alert(
-        "Імпорт завершено ✅\n\n" +
-        "Рекомендуємо одразу зробити новий бекап (📦 Експорт пакетом) " +
-        "і надіслати його собі на пошту або в хмару."
-      );
-    }, 600);
+    showToast("✅ Імпорт завершено. Перезавантаження…", 2000);
+
+setTimeout(() => {
+  alert(
+    "Імпорт завершено ✅\n\n" +
+    "Зараз сторінка перезавантажиться, щоб модулі підхопили нові дані.\n\n" +
+    "Рекомендуємо одразу зробити новий бекап (📦 Експорт пакетом) " +
+    "і надіслати його собі на пошту або в хмару."
+  );
+  location.reload();
+}, 600);
   } catch (err) {
     console.error(err);
     showToast("❌ Помилка читання файлу");
   }
 
   fileInput.value = "";
+};
+// ============ ОЧИЩЕННЯ ВСЬОГО ============
+const btnClearAll = document.getElementById("btnClearAll");
+
+btnClearAll.onclick = async () => {
+  const ok = confirm(
+    "⚠️ УВАГА!\n\n" +
+    "Це видалить УСІ дані з усіх модулів (кредити, комуналку, календар).\n\n" +
+    "Цю дію НЕ МОЖНА скасувати.\n\n" +
+    "Продовжити?"
+  );
+  if (!ok) return;
+
+  const ok2 = confirm(
+    "Точно впевнені?\n\n" +
+    "Краще спочатку зробити експорт пакетом (📦), щоб мати бекап."
+  );
+  if (!ok2) return;
+
+  try {
+    // Очищаємо IndexedDB
+    const req = indexedDB.deleteDatabase("MyBoxDB");
+    req.onsuccess = () => {
+      showToast("🗑 Усі дані видалено. Перезавантаження…", 2000);
+      setTimeout(() => location.reload(), 800);
+    };
+    req.onerror = () => {
+      showToast("❌ Помилка видалення");
+    };
+    req.onblocked = () => {
+      showToast("⚠️ Закрийте інші вкладки сайту і спробуйте ще раз");
+    };
+  } catch (err) {
+    console.error(err);
+    showToast("❌ Помилка очищення");
+  }
 };
 
 // ============ SERVICE WORKER ============
