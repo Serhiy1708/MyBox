@@ -57,12 +57,12 @@ body {
 /* ============ ЕКРАНИ ============ */
 .screen {
   display: none;
-  height: 100vh;
+  min-height: 100vh;
+  width: 100%;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
 }
 .screen.active { display: block; }
-
 /* ============ ХЕДЕР ============ */
 .header {
   padding: 24px 20px 16px;
