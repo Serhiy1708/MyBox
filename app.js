@@ -59,7 +59,6 @@ function renderDashboard() {
 
 // ============ ВІДКРИТТЯ МОДУЛЯ ============
 async function openModule(m) {
-  console.log("OPEN MODULE:", m);
   moduleTitle.textContent = m.title;
   moduleContent.innerHTML = `<div class="placeholder"><div class="big">⏳</div><h3>Завантаження…</h3></div>`;
 
