@@ -73,6 +73,7 @@ async function openModule(m) {
     }
 
     moduleContent.innerHTML = "";
+        console.log("DEBUG:", m.id, "| instance:", m.instance, "| has init:", m.instance && typeof m.instance.init);
 
     if (m.instance && typeof m.instance.init === "function") {
       try {
