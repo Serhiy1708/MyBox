@@ -751,10 +751,8 @@ export default {
   `,
 
     async init(container) {
-    console.log("INIT 1: start");
     containerRef = container;
     db = { ready: true };
-    console.log("INIT 2: refs set");
 
     if (!document.getElementById(`style-${this.id}`)) {
       const style = document.createElement("style");
@@ -762,9 +760,6 @@ export default {
       style.textContent = this.styles;
       document.head.appendChild(style);
     }
-        console.log("INIT 3: about to render template");
-    container.innerHTML = this.template;
-    console.log("INIT 4: template rendered");
 
     container.innerHTML = this.template;
 
@@ -781,14 +776,10 @@ export default {
     const currentMonthStr = String(new Date().getMonth() + 1).padStart(2, "0");
     container.querySelector("#selectMonth").value = currentMonthStr;
 
-    console.log("INIT 5: about to restoreDraft");
-    await restoreDraft();
-    console.log("INIT 6: draft restored");
-    // Відновлюємо чернетку
     await restoreDraft();
     calculate();
 
-    // Автозбереження + автоперерахунок на всіх полях
+    // Автозбереження + автоперерахунок
     container.querySelectorAll("input, select").forEach(el => {
       el.addEventListener("input", () => { calculate(); saveDraftAuto(); });
       el.addEventListener("change", () => { calculate(); saveDraftAuto(); });
@@ -809,15 +800,9 @@ export default {
       if (e.target.id === "reportModal") closeReport();
     });
 
-    // Глобальні функції для inline-обробників
+    // Глобальні функції
     window.utilCopyFrom = copyFromHistory;
     window.utilDelete = deleteHistory;
-
-        console.log("INIT 7: before calculate");
-    calculate();
-    console.log("INIT 8: end");
-
-    calculate();
   },
 
   async getData() {
