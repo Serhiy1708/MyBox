@@ -116,46 +116,67 @@ btnBack.onclick = () => {
 
 // ============ ПАКЕТНИЙ ЕКСПОРТ ============
 btnExport.onclick = async () => {
-  const pack = {
-    app: "MyBox",
-    version: "1.0",
-    exportedAt: new Date().toISOString(),
-    modules: {}
-  };
+  try {
+    const data = await getAllFromDB();
 
-  for (const m of modules) {
-    try {
-      if (!m.loaded) {
-        const mod = await import(`./modules/${m.id}.js`);
-        m.instance = mod.default;
-        m.loaded = true;
-      }
-      if (m.instance && typeof m.instance.getData === "function") {
-        pack.modules[m.id] = await m.instance.getData();
-      } else {
-        pack.modules[m.id] = null;
-      }
-    } catch (e) {
-      console.warn(`Export ${m.id}:`, e);
-      pack.modules[m.id] = null;
-    }
+    const pack = {
+      app: "MyBox",
+      version: "1.0",
+      exportedAt: new Date().toISOString(),
+      modules: data
+    };
+
+    const json = JSON.stringify(pack, null, 2);
+    const blob = new Blob([json], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `mybox-backup-${new Date().toISOString().slice(0, 10)}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+
+    setTimeout(() => {
+      showToast("📦 Бекап завантажено. Надішли його собі на пошту.", 4000);
+    }, 500);
+  } catch (e) {
+    console.error("Export error:", e);
+    showToast("❌ Помилка експорту");
   }
-
-  const json = JSON.stringify(pack, null, 2);
-  const blob = new Blob([json], { type: "application/json" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = `mybox-backup-${new Date().toISOString().slice(0, 10)}.json`;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
-
-  setTimeout(() => {
-    showToast("📦 Бекап завантажено. Надішли його собі на пошту.", 4000);
-  }, 500);
 };
+
+// Читає ВСЕ з IndexedDB MyBoxDB
+async function getAllFromDB() {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open("MyBoxDB", 1);
+    req.onupgradeneeded = (e) => {
+      const db = e.target.result;
+      if (!db.objectStoreNames.contains("kv")) {
+        db.createObjectStore("kv");
+      }
+    };
+    req.onsuccess = () => {
+      const db = req.result;
+      const tx = db.transaction("kv", "readonly");
+      const store = tx.objectStore("kv");
+      const result = {};
+      const cursor = store.openCursor();
+      cursor.onsuccess = (e) => {
+        const c = e.target.result;
+        if (c) {
+          result[c.key] = c.value;
+          c.continue();
+        } else {
+          db.close();
+          resolve(result);
+        }
+      };
+      cursor.onerror = () => { db.close(); reject(cursor.error); };
+    };
+    req.onerror = () => reject(req.error);
+  });
+}
 
 // ============ ПАКЕТНИЙ ІМПОРТ ============
 btnImport.onclick = () => fileInput.click();
@@ -174,58 +195,57 @@ fileInput.onchange = async (e) => {
       return;
     }
 
-    const ok = confirm("Імпорт замінить усі дані поточної коробки.\n\nПродовжити?");
+    const ok = confirm("Імпорт замінить УСІ дані коробки.\n\nПродовжити?");
     if (!ok) { fileInput.value = ""; return; }
 
-    for (const m of modules) {
-      const data = pack.modules[m.id];
-      if (data === undefined || data === null) continue;
-      try {
-        if (!m.loaded) {
-          const mod = await import(`./modules/${m.id}.js`);
-          m.instance = mod.default;
-          m.loaded = true;
-        }
-        if (m.instance && typeof m.instance.setData === "function") {
-          await m.instance.setData(data);
-        }
-      } catch (err) {
-        console.warn(`Не вдалось імпортувати ${m.id}:`, err);
-      }
-    }
+    // Записуємо всі дані в IndexedDB
+    await setAllToDB(pack.modules);
 
     showToast("✅ Імпорт завершено. Перезавантаження…", 2000);
-
-    setTimeout(() => {
-      alert(
-        "Імпорт завершено ✅\n\n" +
-        "Зараз сторінка перезавантажиться, щоб модулі підхопили нові дані.\n\n" +
-        "Рекомендуємо одразу зробити новий бекап (📦 Експорт пакетом)."
-      );
-      location.reload();
-    }, 600);
+    setTimeout(() => location.reload(), 800);
   } catch (err) {
-    console.error(err);
-    showToast("❌ Помилка читання файлу");
+    console.error("Import error:", err);
+    showToast("❌ Помилка імпорту");
   }
 
   fileInput.value = "";
 };
 
+// Записує ВСЕ в IndexedDB MyBoxDB
+async function setAllToDB(data) {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open("MyBoxDB", 1);
+    req.onupgradeneeded = (e) => {
+      const db = e.target.result;
+      if (!db.objectStoreNames.contains("kv")) {
+        db.createObjectStore("kv");
+      }
+    };
+    req.onsuccess = () => {
+      const db = req.result;
+      const tx = db.transaction("kv", "readwrite");
+      const store = tx.objectStore("kv");
+      store.clear();
+      for (const [key, value] of Object.entries(data)) {
+        store.put(value, key);
+      }
+      tx.oncomplete = () => { db.close(); resolve(); };
+      tx.onerror = () => { db.close(); reject(tx.error); };
+    };
+    req.onerror = () => reject(req.error);
+  });
+}
 // ============ ОЧИЩЕННЯ ВСЬОГО ============
 if (btnClearAll) {
   btnClearAll.onclick = async () => {
-    const ok = confirm(
-      "⚠️ УВАГА!\n\n" +
-      "Це видалить УСІ дані з усіх модулів.\n\n" +
-      "Цю дію НЕ МОЖНА скасувати.\n\nПродовжити?"
-    );
+    const ok = confirm("⚠️ УВАГА!\n\nЦе видалить УСІ дані коробки.\n\nПродовжити?");
     if (!ok) return;
 
-    const ok2 = confirm("Точно впевнені?\n\nКраще спочатку зробити експорт пакетом (📦).");
+    const ok2 = confirm("Точно впевнені?\n\nКраще спочатку зробити експорт (📦).");
     if (!ok2) return;
 
     try {
+      // Видаляємо базу
       const req = indexedDB.deleteDatabase("MyBoxDB");
       req.onsuccess = () => {
         showToast("🗑 Усі дані видалено. Перезавантаження…", 2000);
@@ -234,7 +254,7 @@ if (btnClearAll) {
       req.onerror = () => showToast("❌ Помилка видалення");
       req.onblocked = () => showToast("⚠️ Закрийте інші вкладки сайту");
     } catch (err) {
-      console.error(err);
+      console.error("Clear error:", err);
       showToast("❌ Помилка очищення");
     }
   };
