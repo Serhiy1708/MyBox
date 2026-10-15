@@ -776,7 +776,11 @@ export default {
     const currentMonthStr = String(new Date().getMonth() + 1).padStart(2, "0");
     container.querySelector("#selectMonth").value = currentMonthStr;
 
+        container.querySelector("#selectMonth").value = currentMonthStr;
+
+    console.log("UTIL INIT: before await restoreDraft");
     await restoreDraft();
+    console.log("UTIL INIT: after restoreDraft");
     calculate();
 
     // Автозбереження + автоперерахунок
