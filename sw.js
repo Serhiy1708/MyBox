@@ -1,9 +1,20 @@
-const CACHE = "mybox-v5";
+const CACHE = "mybox-v6";
 
-// INSTALL: просто активуємось
-self.addEventListener("install", () => self.skipWaiting());
+// INSTALL: закешувати мінімум (index.html + app.js)
+self.addEventListener("install", (e) => {
+  e.waitUntil(
+    caches.open(CACHE).then(c => {
+      return Promise.all([
+        c.add("./index.html").catch(err => console.warn("Не закешовано index.html:", err)),
+        c.add("./app.js").catch(err => console.warn("Не закешовано app.js:", err)),
+        c.add("./style.css").catch(err => console.warn("Не закешовано style.css:", err))
+      ]);
+    })
+  );
+  self.skipWaiting();
+});
 
-// ACTIVATE: чистимо старий кеш
+// ACTIVATE: чистимо старі кеші
 self.addEventListener("activate", (e) => {
   e.waitUntil(
     caches.keys().then(keys =>
@@ -13,7 +24,7 @@ self.addEventListener("activate", (e) => {
   self.clients.claim();
 });
 
-// FETCH: спочатку мережа, потім кеш
+// FETCH: мережа → кеш → fallback на index.html
 self.addEventListener("fetch", (e) => {
   if (e.request.method !== "GET") return;
 
@@ -29,10 +40,22 @@ self.addEventListener("fetch", (e) => {
         }
         return res;
       })
-      .catch(() => {
-        return caches.match(e.request).then(cached => {
-          if (cached) return cached;
-          return caches.match("./index.html");
+      .catch(async () => {
+        // Мережа недоступна — пробуємо кеш
+        const cached = await caches.match(e.request);
+        if (cached) return cached;
+
+        // Для навігаційних запитів — віддаємо index.html
+        if (e.request.mode === "navigate") {
+          const fallback = await caches.match("./index.html");
+          if (fallback) return fallback;
+        }
+
+        // Якщо нічого немає — повертаємо помилку
+        return new Response("Офлайн — ресурс не закешовано", {
+          status: 503,
+          statusText: "Offline",
+          headers: { "Content-Type": "text/plain;charset=utf-8" }
         });
       })
   );
