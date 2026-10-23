@@ -1,13 +1,18 @@
-const CACHE = "mybox-v6";
+const CACHE = "mybox-v8";
 
-// INSTALL: закешувати мінімум (index.html + app.js)
+// INSTALL: закешувати файли
 self.addEventListener("install", (e) => {
   e.waitUntil(
     caches.open(CACHE).then(c => {
       return Promise.all([
         c.add("./index.html").catch(err => console.warn("Не закешовано index.html:", err)),
         c.add("./app.js").catch(err => console.warn("Не закешовано app.js:", err)),
-        c.add("./style.css").catch(err => console.warn("Не закешовано style.css:", err))
+        c.add("./style.css").catch(err => console.warn("Не закешовано style.css:", err)),
+        c.add("./modules/_storage.js").catch(err => console.warn("Не закешовано _storage.js:", err)),
+        c.add("./modules/credit.js").catch(err => console.warn("Не закешовано credit.js:", err)),
+        c.add("./modules/utility.js").catch(err => console.warn("Не закешовано utility.js:", err)),
+        c.add("./modules/calendar.js").catch(err => console.warn("Не закешовано calendar.js:", err)),
+        c.add("./modules/construction.js").catch(err => console.warn("Не закешовано construction.js:", err)) // ← НОВИЙ
       ]);
     })
   );

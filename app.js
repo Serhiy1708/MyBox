@@ -2,7 +2,8 @@
 const modules = [
   { id: "credit",   title: "Кредити",   icon: "💳", desc: "Калькулятор кредитів", loaded: false, instance: null },
   { id: "utility",  title: "Комуналка", icon: "🏠", desc: "Розрахунок платежів",  loaded: false, instance: null },
-  { id: "calendar", title: "Календар",  icon: "📅", desc: "Приватний календар",   loaded: false, instance: null }
+  { id: "calendar", title: "Календар",  icon: "📅", desc: "Приватний календар",   loaded: false, instance: null },
+  { id: "construction", title: "Будівництво", icon: "🏗️", desc: "Будівельні витрати", loaded: false, instance: null }
 ];
 
 // ============ DOM ============
