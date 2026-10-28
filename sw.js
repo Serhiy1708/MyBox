@@ -1,4 +1,4 @@
-const CACHE = "mybox-v8";
+const CACHE = "mybox-v9";
 
 // INSTALL: закешувати файли
 self.addEventListener("install", (e) => {
